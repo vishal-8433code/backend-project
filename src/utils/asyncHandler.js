@@ -1,13 +1,14 @@
-const asyncHandler = (requestHandler) => {
-   return (req, res, next) => {
-        Promise.resolve(requestHandler(req, res, next)).catch((err) => {
-            console.log("error found on utilities folder and utilites function")
-            next(err)
-        })
-    }
-}
+const asyncHandler = (func) => {
+  return (req, res, next) => {
+    Promise.resolve(func(req, res, next)).catch((err) => {
+      console.error("Async error caught: in async handler function", err);
+      next(err);
+    });
+  };
+};
 
-export default asyncHandler
+export default asyncHandler;
+
 
 
 
