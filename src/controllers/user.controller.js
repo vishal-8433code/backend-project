@@ -186,43 +186,146 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   if (!incomingRefreshToken) {
     throw new ApiError(401, "unauthorized refresh token")
   }
- try {
-   const decodeToken = jwt.verify(incomingRefreshToken,
-     process.env.REFRESH_TOKEN_SECRET
-   )
-   const user = await User.findById(decodeToken?._id)
+  try {
+    const decodeToken = jwt.verify(incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    )
+    const user = await User.findById(decodeToken?._id)
     if (!user) {
-     throw new ApiError(401, "invalid user token")
-   }
- 
-   if (incomingRefreshToken !== user?._id) {
-     throw new ApiError(401,"they are not same tokens")
-   }
- 
-    const {accessToken,refreshToken} = await generateAccessAndRefreshTokens(user?._id)
- 
+      throw new ApiError(401, "invalid user token")
+    }
+
+    if (incomingRefreshToken !== user?._id) {
+      throw new ApiError(401, "they are not same tokens")
+    }
+
+    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user?._id)
+
     const options = {
-     httpOnly:true,
-     secure:true
+      httpOnly: true,
+      secure: true
     }
     return res
-    .status(200)
-    .cookie("accessToken",accessToken,options)
-    .cookie("refreshToken",refreshToken,options)
-    .json(
-     new ApiResponse(
-       200,
-       {accessToken,
-         refreshToken
-       },
-       "acess token generate sucessfully"
-     )
-    )
- } catch (error) {
-  throw new ApiError(400,error.mgs),
-  console.log("something error in generate access token")
- }
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json(
+        new ApiResponse(
+          200,
+          {
+            accessToken,
+            refreshToken
+          },
+          "acess token generate sucessfully"
+        )
+      )
+  } catch (error) {
+    throw new ApiError(400, error.mgs),
+    console.log("something error in generate access token")
+  }
 })
 
-export { registerUser, loginUser, logoutUser,refreshAccessToken };
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body
+  const user = await User.findById(req.user?._id)
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+
+  if (!isPasswordCorrect) {
+    throw new ApiError("password is incorrect please check your password", 401)
+  }
+  user.password = newPassword
+  await user.save({ validateBeforeSave: false })
+
+  return res.status(200)
+    .json(
+      new ApiResponse(200, "password change sucessfully")
+    )
+})
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res.status(200)
+    .json(200, req.user, "user fetch sucessfully")
+})
+
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  const { fullName, email } = req.body
+  if (!(fullName || email)) {
+    throw new ApiError(401, "please fill fullName and email fieds")
+  }
+  const user = await User.findByIdAndUpdate(req.user._id,
+    {
+      $set: {
+        email,
+        fullName
+      }
+    }, { new: true }
+  ).select("-password")
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, "user details updated sucessfully", user)
+    )
+})
+
+const updatedCoverImage = asyncHandler(async (req, res) => {
+  const coverImageLocalPath = req.file?.path
+  if (!coverImageLocalPath) {
+    throw new ApiError(404, "coverImage local path not found")
+  }
+  const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+  if (!coverImage) {
+    throw new ApiError(404, "coverImage local path not found")
+  }
+  const updateCoverImage = await User.findByIdAndUpdate(req.user?._id,
+    {
+      $set: {
+        coverImage: coverImage.secure_url
+      }
+    },
+    { new: true }).select("-password")
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200,updateCoverImage, "avatar updated sucessfully")
+    )
+})
+
+const updatedAvatar = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path
+  if (!avatarLocalPath) {
+    throw new ApiError(404, "avatat local path not found")
+  }
+  const Avatar = await uploadOnCloudinary(avatarLocalPath)
+  if (!Avatar) {
+    throw new ApiError(404, "avatat local path not found")
+  }
+  const updateAvatar = await User.findByIdAndUpdate(req.user?._id,
+    {
+      $set: {
+        avatar: Avatar.secure_url
+      }
+    },
+    { new: true }).select("-password")
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, updateAvatar, "avatar updated sucessfully")
+    )
+})
+
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshAccessToken,
+  changeCurrentPassword,
+  getCurrentUser,
+  updateAccountDetails,
+  updatedAvatar,
+  updatedCoverImage
+};
 
