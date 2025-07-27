@@ -5,7 +5,10 @@ import jwt from "jsonwebtoken"
 
 export const verifyJWT = asyncHandler(async (req, res, next) => {
     try {
-        const token = req.cookies?.accessToken || req.header("Authorization").replace("Bearer", "")
+        const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "")
+        console.log("AccessToken from Cookie:", req.cookies?.accessToken);
+console.log("Authorization Header:", req.header("Authorization"));
+
         if (!token) {
             throw new ApiError(400, "comethind went wrong to find jwt token")
         }
