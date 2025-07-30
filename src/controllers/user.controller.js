@@ -288,7 +288,7 @@ const updatedCoverImage = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(
-      new ApiResponse(200,updateCoverImage, "avatar updated sucessfully")
+      new ApiResponse(200, updateCoverImage, "avatar updated sucessfully")
     )
 })
 
@@ -316,6 +316,69 @@ const updatedAvatar = asyncHandler(async (req, res) => {
     )
 })
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params
+  if (!username?.trim()) {
+    throw new ApiError(400, "req.params are empty please put some information")
+  }
+  const channel = await User.aggregate([
+    {
+      $match:
+        { username: username.toLowerCase() }
+    }, {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel", // hamare subscriber yaha niklenge 
+        as: "subscribers"
+      }
+    }, {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",  // yaha niklenge humne jise subscriiber kiya hai
+        as: "subscribedTo"
+      }
+    }, {
+      $addFields: {
+        subscriberCount: {
+          $size: "$subscribers"
+        },
+        channelSubscriberTo: {
+          $size: "$subscribedTo"
+        },
+        isSubscribed: {
+          $cond: {
+            if: { $in: [req.user?._id, "$subscribers.subsciber"] },
+            then: true,
+            else: false
+          }
+        }
+      }
+    }, {
+      $project: {
+        fullName: 1,
+        username: 1,
+        avatar: 1,
+        coverImage: 1,
+        channelSubscriberTo: 1,
+        channelSubscriberTo: 1,
+        email:1
+      }
+    }
+  ])
+
+  if (!channel?.length) {
+    throw new ApiError(400,"channel does not exist may be some error in fetch channel")
+  }
+  return res.status(200)
+  .json(
+    new ApiResponse(200,
+      channel,
+      "channel fetched sucessfully"
+    )
+  )
+})
 
 export {
   registerUser,
@@ -326,6 +389,7 @@ export {
   getCurrentUser,
   updateAccountDetails,
   updatedAvatar,
-  updatedCoverImage
+  updatedCoverImage,
+  getUserChannelProfile
 };
 
